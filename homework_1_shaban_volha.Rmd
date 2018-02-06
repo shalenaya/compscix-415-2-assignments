@@ -18,4 +18,14 @@ glimpse(WorldCities)
 WorldCities <- head(WorldCities, 200) # 200 rows
 country_col <- WorldCities$country
 unique(country_col)
+WorldCities %>% select(region) %>% unique()
+WorldCities %>% select(country) %>% unique()
+WorldCities %>% ggplot(aes(x = population)) +
+geom_histogram()
+WorldCities %>% ggplot(aes(x = population, y = country)) +
+geom_histogram(stat = "identity") +
+ggtitle('My table') +
+xlab('Total Population') +
+ylab('Country code') +
+theme_bw()
 ```
