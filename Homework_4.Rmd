@@ -1,0 +1,201 @@
+---
+title: "COMPSCIX 415.2 Homework 4"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(nycflights13)
+```
+
+## 5.6.7
+```{r}
+#2 Come up with another approach that will give you the same output as not_cancelled %>% count(dest) and not_cancelled %>% count(tailnum, wt = distance) (without using count()).
+
+not_cancelled <- flights %>% 
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+#to replace
+not_cancelled %>% count(dest)
+not_cancelled %>% count(tailnum, wt = distance)
+
+#fixed
+not_cancelled %>%
+  group_by(dest) %>%
+  summarize(n = n())
+
+not_cancelled %>%
+  group_by(tailnum) %>%
+  summarize(n = sum(distance))
+
+#4 Look at the number of cancelled flights per day. Is there a pattern? Is the proportion of cancelled flights related to the average delay?
+
+flights %>%
+  group_by(day) %>%
+  summarise(cancelled = mean(is.na(dep_delay)),
+            mean_dep = mean(dep_delay, na.rm = T),
+            mean_arr = mean(arr_delay, na.rm = T)) %>%
+  ggplot(aes(y = cancelled)) +
+  geom_point(aes(x = mean_dep), colour = "red") +
+  geom_point(aes(x = mean_arr), colour = "blue") +
+  labs(x = "Avg delay per day", y = "Cancelled flights p day")
+
+# There is a positive relationship. The higher the average delay of the day, the higher the proportion of cancelled flights per day.
+
+
+#5 Which carrier has the worst delays? Challenge: can you disentangle the effects of bad airports vs. bad carriers? Why/why not? (Hint: think about flights %>% group_by(carrier, dest) %>% summarise(n()))
+
+
+flights %>% 
+  group_by(carrier) %>% 
+  summarise(avg.delay = mean(arr_delay, na.rm = TRUE)) %>% 
+  arrange(desc(avg.delay))
+
+#f9 has the worst delays. We can look at which airport has the worst departure delay:
+
+flights %>% group_by(origin) %>%
+  summarize(avg_dep_delay = mean(dep_delay, na.rm = TRUE)) 
+
+#We can attempt to disentangle the effects of departure delay for carrier 9E:
+
+flights %>% group_by(carrier, origin) %>%
+  summarize(avg_dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  filter(carrier == '9E')
+
+#We can conclude that for carrier 9E the flights were delayed most at JFK.
+
+#6 What does the sort argument to count() do. When might you use it?
+
+# When you want to sort the cases based on the count.
+```
+
+##10.5
+
+```{r}
+#1 How can you tell if an object is a tibble? (Hint: try printing mtcars, which is a regular data frame).
+
+print(mtcars)
+print(as_tibble(mtcars))
+
+# A data frame will print the entire contents. A tibble will only print (by default) the first 10 rows
+
+#2 Compare and contrast the following operations on a data.frame and equivalent tibble. What is different? Why might the default data frame behaviours cause you frustration?
+
+df <- data.frame(abc = 1, xyz = "a")
+df$x
+df[, "xyz"]
+df[, c("abc", "xyz")]
+
+
+tbl <- as_tibble(df)
+tbl$x
+tbl[, "xyz"]
+tbl[, c("abc", "xyz")]
+
+#Using $ a data.frame will partially complete the column. So even though we wrote df$x it returned df$xyz. It can result in accidentally using a different variable than you thought you were using.
+
+#3 If you have the name of a variable stored in an object, e.g. var <- "mpg", how can you extract the reference variable from a tibble?
+
+var <- "hwy"
+mpg[[var]]
+
+#6 What option controls how many additional column names are printed at the footer of a tibble?
+
+
+?print.tbl_df
+#n_extra
+```
+
+
+##12.3.3
+
+```{r}
+#2 Why does this code fail?
+
+#table4a %>% 
+#  gather(1999, 2000, key = "year", value = "cases")
+#> Error in combine_vars(vars, ind_list): Position must be between 0 and n
+
+#We need ``, this will work:
+
+table4a %>% 
+  gather(`1999`, `2000`, key = "year", value = "cases")
+
+#3 Why does spreading this tibble fail? How could you add a new column to fix the problem?
+
+people <- tribble(
+  ~name,             ~key,    ~value,
+  #-----------------|--------|------
+  "Phillip Woods",   "age",       45,
+  "Phillip Woods",   "height",   186,
+  "Phillip Woods",   "age",       50,
+  "Jessica Cordero", "age",       37,
+  "Jessica Cordero", "height",   156
+)
+
+#Spreading the data frame fails because there are two rows with “age” for “Phillip Woods”. We would need to add another column:
+
+people <- tribble(
+  ~name,             ~key,    ~value, ~obs,
+  #-----------------|--------|------|------
+  "Phillip Woods",   "age",       45, 1,
+  "Phillip Woods",   "height",   186, 1,
+  "Phillip Woods",   "age",       50, 2,
+  "Jessica Cordero", "age",       37, 1,
+  "Jessica Cordero", "height",   156, 1
+)
+spread(people, key, value)
+
+
+#4 Tidy the simple tibble below. Do you need to spread or gather it? What are the variables?
+
+preg <- tribble(
+  ~pregnant, ~male, ~female,
+  "yes",     NA,    10,
+  "no",      20,    12
+)
+
+#We need to gather it.
+
+preg %>%
+  gather(male, female, key = "sex", value = "count")
+```
+
+## 12.4.3
+```{r}
+#1 What do the extra and fill arguments do in separate()? Experiment with the various options for the following two toy datasets.
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"))
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"))
+
+?separate
+#The extra argument tells separate what to do if there are too many pieces, and the fill argument if there aren’t enough.
+
+# We can fix the warnings by using fill and extra
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"), fill = "left")
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"), extra = "drop")
+
+#2 Both unite() and separate() have a remove argument. What does it do? Why would you set it to FALSE?
+
+#"remove"" will remove the columns you want to turn into one single column in "unite"" and will remove the pasted column to separate in "separate".
+```
+
+```{r, include=FALSE}
+?read.csv
+knitr::opts_chunk$set(echo = TRUE)
+file_path <- '/Users/oshaban/DataScience/baby_names.txt'
+babies <- read_delim(file = file_path, delim ="|")
+glimpse(babies)
+saveRDS(babies, file = '/Users/oshaban/DataScience/baby_names.rds')
+readRDS(file = '/Users/oshaban/DataScience/baby_names.rds')
+```
